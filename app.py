@@ -1,4 +1,5 @@
 import datetime
+import os
 from typing import Any, Dict, Optional, List
 
 import streamlit as st
@@ -10,7 +11,7 @@ from pymongo import MongoClient
 # (Same as bug_tracker.py)
 # =========================
 
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = "bug_tracker_db"
 COLLECTION_NAME = "bugs"
 

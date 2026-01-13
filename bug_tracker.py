@@ -38,6 +38,7 @@ MongoDB:
 
 import argparse
 import datetime
+import os
 import subprocess
 from typing import Optional, Dict, Any
 
@@ -48,7 +49,7 @@ from bson.objectid import ObjectId
 # MongoDB Configuration
 # =========================
 
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = "bug_tracker_db"
 COLLECTION_NAME = "bugs"
 

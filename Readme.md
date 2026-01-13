@@ -49,72 +49,51 @@ Bug Tracking Tool/
 
 ## 🔧 Installation Guide
 
-### 1. Install Python Dependencies  
-Use Python’s module runner:
-
+### 1. Clone the Repository
 ```bash
-py -m pip install pymongo streamlit
-2. Ensure MongoDB is Running
+git clone <your-repo-url>
+cd "Bug Tracking Tool"
+```
 
-If using local MongoDB:
-▶ Running the CLI Tool
-🌱 Create Bug
-Architecture Overview
-1️⃣ Input Layer
+### 2. Install Dependencies
+It is recommended to use a virtual environment:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-CLI commands
+### 3. Database Configuration
+By default, the app looks for a local MongoDB at `mongodb://localhost:27017/`.  
+To use a different database (like MongoDB Atlas), set the `MONGO_URI` environment variable:
+```bash
+# Windows
+set MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
+# Linux/Mac
+export MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
+```
 
-Streamlit UI forms
+---
 
-2️⃣ Processing Layer
+## 🚀 Deployment
 
-Python functions for CRUD
+### Streamlit Community Cloud
+1. Push your code to GitHub.
+2. Connect your repository to [Streamlit Cloud](https://share.streamlit.io/).
+3. In the app settings on Streamlit Cloud, go to **Secrets** and add:
+   ```toml
+   MONGO_URI = "your_mongodb_atlas_connection_string"
+   ```
 
-Git commit fetch
+---
 
-Data validation
+## ❤️ Advantages
+- **Streamlined Workflow**: Easily track bug lifecycle from report to resolution.
+- **Dual Interface**: Use CLI for quick updates or the Dashboard for a visual overview.
+- **Cloud Ready**: Configured for easy deployment with environment variable support.
 
-3️⃣ Database Layer (MongoDB)
+---
 
-Stores:
-
-Bugs
-
-Logs
-
-Status updates
-
-4️⃣ Output Layer
-
-Terminal output
-
-Streamlit dashboard visualization
-
-❤️ Advantages
-
-Better debugging workflow
-
-Centralized bug history
-
-Easy log and status management
-
-UI + CLI flexibility
-
-Suitable for teams and individuals
-
-📌 Future Enhancements
-
-User authentication
-
-Screenshot/file uploads
-
-Bug assignment to developers
-
-Email/SMS notifications
-
-Analytics dashboard for trends
-
-👤 Author
-
-Aditi Gupta
+## 👤 Author
+**Aditi Gupta**  
 Final Year B.Tech Computer Science
