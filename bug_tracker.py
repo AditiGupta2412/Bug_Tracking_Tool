@@ -1,52 +1,14 @@
-#!/usr/bin/env python3
-"""
-Bug Tracking Optimization Tool
---------------------------------
-Features:
-- Create bug reports for web modules
-- Add test logs to existing bugs
-- List and filter bugs
-- Update bug status
-- Automatically attach current Git commit hash to each bug
-
-Usage examples:
-
-    # Create a new bug
-    python bug_tracker.py create \
-        --title "Login button not working" \
-        --module "auth" \
-        --severity "high" \
-        --description "Login button does nothing when clicked"
-
-    # Add a test log to a bug
-    python bug_tracker.py add-log \
-        --bug-id "<BUG_ID_FROM_DB>" \
-        --status "failed" \
-        --details "Unit tests failed on /login endpoint"
-
-    # List all open bugs
-    python bug_tracker.py list --status "open"
-
-    # Update bug status
-    python bug_tracker.py update-status \
-        --bug-id "<BUG_ID_FROM_DB>" \
-        --status "resolved"
-
-MongoDB:
-- Make sure MongoDB is running locally OR change MONGO_URI to your Atlas URI.
-"""
-
-import argparse
 import datetime
 import os
-import subprocess
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional, List
 
-from pymongo import MongoClient
+import streamlit as st
 from bson.objectid import ObjectId
+from pymongo import MongoClient
 
 # =========================
 # MongoDB Configuration
+# (Same as bug_tracker.py)
 # =========================
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
@@ -54,6 +16,7 @@ DB_NAME = "bug_tracker_db"
 COLLECTION_NAME = "bugs"
 
 
+@st.cache_resource
 def get_db_collection():
     client = MongoClient(MONGO_URI)
     db = client[DB_NAME]
@@ -61,54 +24,29 @@ def get_db_collection():
 
 
 # =========================
-# Git Utilities
-# =========================
-
-def get_current_git_commit() -> Optional[str]:
-    """
-    Returns the current Git commit hash if inside a Git repo.
-    Otherwise returns None.
-    """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        commit_hash = result.stdout.strip()
-        return commit_hash if commit_hash else None
-    except Exception:
-        return None
-
-
-# =========================
-# Core Operations
+# Helper Functions
 # =========================
 
 def create_bug(
     title: str,
     description: str,
     severity: str,
-    module: str
+    module: str,
+    git_commit: Optional[str] = None,
 ) -> str:
-    """
-    Create a new bug report document in MongoDB.
-    Returns the inserted bug ID as a string.
-    """
     collection = get_db_collection()
     now = datetime.datetime.utcnow()
 
     bug_doc: Dict[str, Any] = {
         "title": title,
         "description": description,
-        "severity": severity.lower(),  # e.g., low, medium, high, critical
-        "status": "open",              # default
+        "severity": severity.lower(),
+        "status": "open",
         "module": module,
-        "git_commit": get_current_git_commit(),
+        "git_commit": git_commit or "N/A",
         "created_at": now,
         "updated_at": now,
-        "logs": []  # list of test logs
+        "logs": [],
     }
 
     result = collection.insert_one(bug_doc)
@@ -118,206 +56,216 @@ def create_bug(
 def add_test_log(
     bug_id: str,
     status: str,
-    details: str
+    details: str,
 ) -> bool:
-    """
-    Add a test log entry to an existing bug.
-    status: e.g., "passed", "failed"
-    """
     collection = get_db_collection()
     log_entry = {
         "timestamp": datetime.datetime.utcnow(),
         "status": status.lower(),
-        "details": details
+        "details": details,
     }
 
     result = collection.update_one(
         {"_id": ObjectId(bug_id)},
         {
             "$push": {"logs": log_entry},
-            "$set": {"updated_at": datetime.datetime.utcnow()}
-        }
+            "$set": {"updated_at": datetime.datetime.utcnow()},
+        },
     )
 
     return result.modified_count == 1
 
 
-def list_bugs(
-    status: Optional[str] = None,
-    module: Optional[str] = None,
-    severity: Optional[str] = None
-):
-    """
-    List bugs with optional filters.
-    """
-    collection = get_db_collection()
-    query: Dict[str, Any] = {}
-
-    if status:
-        query["status"] = status.lower()
-    if module:
-        query["module"] = module
-    if severity:
-        query["severity"] = severity.lower()
-
-    cursor = collection.find(query).sort("created_at", -1)
-
-    print("=== Bug List ===")
-    for bug in cursor:
-        print(f"ID         : {bug['_id']}")
-        print(f"Title      : {bug['title']}")
-        print(f"Module     : {bug['module']}")
-        print(f"Severity   : {bug['severity']}")
-        print(f"Status     : {bug['status']}")
-        print(f"Git Commit : {bug.get('git_commit', 'N/A')}")
-        print(f"Created At : {bug['created_at']}")
-        print(f"Updated At : {bug['updated_at']}")
-        print(f"Logs Count : {len(bug.get('logs', []))}")
-        print("-" * 40)
-
-
-def update_bug_status(
-    bug_id: str,
-    new_status: str
-) -> bool:
-    """
-    Update the status of a bug.
-    e.g., open -> in-progress -> resolved -> closed
-    """
+def update_bug_status(bug_id: str, new_status: str) -> bool:
     collection = get_db_collection()
     result = collection.update_one(
         {"_id": ObjectId(bug_id)},
         {
             "$set": {
                 "status": new_status.lower(),
-                "updated_at": datetime.datetime.utcnow()
+                "updated_at": datetime.datetime.utcnow(),
             }
-        }
+        },
     )
     return result.modified_count == 1
 
 
-def show_bug_details(bug_id: str):
-    """
-    Display full details of a single bug, including logs.
-    """
+def list_bugs(
+    status: Optional[str] = None,
+    module: Optional[str] = None,
+    severity: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     collection = get_db_collection()
-    bug = collection.find_one({"_id": ObjectId(bug_id)})
+    query: Dict[str, Any] = {}
 
-    if not bug:
-        print("No bug found with that ID.")
-        return
+    if status and status != "All":
+        query["status"] = status.lower()
+    if module:
+        query["module"] = module
+    if severity and severity != "All":
+        query["severity"] = severity.lower()
 
-    print("=== Bug Details ===")
-    print(f"ID         : {bug['_id']}")
-    print(f"Title      : {bug['title']}")
-    print(f"Description: {bug['description']}")
-    print(f"Module     : {bug['module']}")
-    print(f"Severity   : {bug['severity']}")
-    print(f"Status     : {bug['status']}")
-    print(f"Git Commit : {bug.get('git_commit', 'N/A')}")
-    print(f"Created At : {bug['created_at']}")
-    print(f"Updated At : {bug['updated_at']}")
-    print("\nTest Logs:")
-    logs = bug.get("logs", [])
-    if not logs:
-        print("  No logs yet.")
-    else:
-        for i, log in enumerate(logs, start=1):
-            print(f"  Log #{i}")
-            print(f"    Time   : {log['timestamp']}")
-            print(f"    Status : {log['status']}")
-            print(f"    Details: {log['details']}")
-            print("-" * 30)
+    cursor = collection.find(query).sort("created_at", -1)
+    return list(cursor)
+
+
+def get_bug_by_id(bug_id: str) -> Optional[Dict[str, Any]]:
+    collection = get_db_collection()
+    return collection.find_one({"_id": ObjectId(bug_id)})
 
 
 # =========================
-# CLI (argparse)
+# Streamlit UI
 # =========================
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Bug Tracking Optimization Tool (Python + MongoDB + Git)"
+st.set_page_config(page_title="Bug Tracking Tool", page_icon="🐞", layout="wide")
+
+st.title("🐞 Bug Tracking Optimization Tool")
+st.caption("Python · MongoDB · Streamlit")
+
+menu = st.sidebar.radio(
+    "Navigation",
+    ["Create Bug", "View Bugs", "Update Status / Add Log"],
+)
+
+
+# --------- Page: Create Bug ---------
+if menu == "Create Bug":
+    st.subheader("Create a New Bug Report")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        title = st.text_input("Bug Title")
+        module = st.text_input("Module (e.g., auth, dashboard, api)")
+        severity = st.selectbox(
+            "Severity",
+            ["low", "medium", "high", "critical"],
+            index=2,
+        )
+    with col2:
+        git_commit = st.text_input(
+            "Git Commit (optional)",
+            help="Paste commit hash if you want to link this bug to a specific version.",
+        )
+        description = st.text_area("Description")
+
+    if st.button("Create Bug", type="primary"):
+        if not title or not description or not module:
+            st.error("Please fill in Title, Description, and Module.")
+        else:
+            bug_id = create_bug(
+                title=title,
+                description=description,
+                severity=severity,
+                module=module,
+                git_commit=git_commit or None,
+            )
+            st.success(f"Bug created successfully! ID: {bug_id}")
+
+
+# --------- Page: View Bugs ---------
+elif menu == "View Bugs":
+    st.subheader("View & Filter Bugs")
+
+    col_filter1, col_filter2, col_filter3 = st.columns(3)
+    with col_filter1:
+        status_filter = st.selectbox(
+            "Status",
+            ["All", "open", "in-progress", "resolved", "closed"],
+        )
+    with col_filter2:
+        severity_filter = st.selectbox(
+            "Severity",
+            ["All", "low", "medium", "high", "critical"],
+        )
+    with col_filter3:
+        module_filter = st.text_input("Module (optional)")
+
+    bugs = list_bugs(
+        status=status_filter,
+        module=module_filter or None,
+        severity=severity_filter,
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    st.write(f"Found **{len(bugs)}** bugs.")
+    if not bugs:
+        st.info("No bugs match your filters.")
+    else:
+        for bug in bugs:
+            with st.expander(
+                f"[{bug['status'].upper()}] {bug['title']}  —  {bug['module']} ({bug['severity']})"
+            ):
+                st.markdown(f"**ID:** `{bug['_id']}`")
+                st.markdown(f"**Module:** `{bug['module']}`")
+                st.markdown(f"**Severity:** `{bug['severity']}`")
+                st.markdown(f"**Status:** `{bug['status']}`")
+                st.markdown(f"**Git Commit:** `{bug.get('git_commit', 'N/A')}`")
+                st.markdown(f"**Created At:** {bug['created_at']}")
+                st.markdown(f"**Updated At:** {bug['updated_at']}")
+                st.markdown("**Description:**")
+                st.write(bug["description"])
 
-    # create bug
-    create_parser = subparsers.add_parser("create", help="Create a new bug report")
-    create_parser.add_argument("--title", required=True, help="Bug title")
-    create_parser.add_argument("--description", required=True, help="Bug description")
-    create_parser.add_argument("--severity", required=True,
-                               choices=["low", "medium", "high", "critical"],
-                               help="Bug severity")
-    create_parser.add_argument("--module", required=True, help="Module name")
+                logs = bug.get("logs", [])
+                st.markdown("**Test Logs:**")
+                if not logs:
+                    st.write("_No logs yet._")
+                else:
+                    for i, log in enumerate(logs, start=1):
+                        st.write(
+                            f"{i}. **{log['status'].upper()}** at {log['timestamp']}: {log['details']}"
+                        )
 
-    # add-log
-    log_parser = subparsers.add_parser("add-log", help="Add a test log to a bug")
-    log_parser.add_argument("--bug-id", required=True, help="Bug ID")
-    log_parser.add_argument("--status", required=True,
-                            choices=["passed", "failed"],
-                            help="Test status")
-    log_parser.add_argument("--details", required=True, help="Details of the test log")
 
-    # list bugs
-    list_parser = subparsers.add_parser("list", help="List bugs with optional filters")
-    list_parser.add_argument("--status", help="Filter by status (open, in-progress, resolved, closed)")
-    list_parser.add_argument("--module", help="Filter by module")
-    list_parser.add_argument("--severity", help="Filter by severity (low, medium, high, critical)")
+# --------- Page: Update Status / Add Log ---------
+elif menu == "Update Status / Add Log":
+    st.subheader("Update Bug Status or Add Test Log")
 
-    # update-status
-    status_parser = subparsers.add_parser("update-status", help="Update status of a bug")
-    status_parser.add_argument("--bug-id", required=True, help="Bug ID")
-    status_parser.add_argument("--status", required=True,
-                               choices=["open", "in-progress", "resolved", "closed"],
-                               help="New status")
+    bug_id_input = st.text_input("Bug ID")
 
-    # show-bug
-    show_parser = subparsers.add_parser("show", help="Show full bug details")
-    show_parser.add_argument("--bug-id", required=True, help="Bug ID")
+    if bug_id_input:
+        bug = None
+        try:
+            bug = get_bug_by_id(bug_id_input)
+        except Exception:
+            st.error("Invalid Bug ID format.")
 
-    args = parser.parse_args()
+        if bug:
+            st.markdown(f"**Title:** {bug['title']}")
+            st.markdown(f"**Current Status:** `{bug['status']}`")
+            st.markdown(f"**Module:** `{bug['module']}`")
+            st.markdown(f"**Severity:** `{bug['severity']}`")
 
-    if args.command == "create":
-        bug_id = create_bug(
-            title=args.title,
-            description=args.description,
-            severity=args.severity,
-            module=args.module
-        )
-        print(f"✅ Bug created with ID: {bug_id}")
+            tab1, tab2 = st.tabs(["Update Status", "Add Test Log"])
 
-    elif args.command == "add-log":
-        ok = add_test_log(
-            bug_id=args.bug_id,
-            status=args.status,
-            details=args.details
-        )
-        if ok:
-            print("✅ Test log added successfully.")
+            with tab1:
+                new_status = st.selectbox(
+                    "New Status",
+                    ["open", "in-progress", "resolved", "closed"],
+                    index=["open", "in-progress", "resolved", "closed"].index(
+                        bug["status"]
+                    )
+                    if bug["status"] in ["open", "in-progress", "resolved", "closed"]
+                    else 0,
+                )
+                if st.button("Update Status"):
+                    if update_bug_status(bug_id_input, new_status):
+                        st.success("Status updated successfully.")
+                    else:
+                        st.error("Failed to update status.")
+
+            with tab2:
+                log_status = st.selectbox("Test Status", ["passed", "failed"])
+                log_details = st.text_area("Test Log Details")
+
+                if st.button("Add Test Log"):
+                    if not log_details.strip():
+                        st.error("Please enter log details.")
+                    else:
+                        if add_test_log(bug_id_input, log_status, log_details):
+                            st.success("Test log added successfully.")
+                        else:
+                            st.error("Failed to add log.")
         else:
-            print("❌ Failed to add test log. Check Bug ID.")
-
-    elif args.command == "list":
-        list_bugs(
-            status=args.status,
-            module=args.module,
-            severity=args.severity
-        )
-
-    elif args.command == "update-status":
-        ok = update_bug_status(
-            bug_id=args.bug_id,
-            new_status=args.status
-        )
-        if ok:
-            print("✅ Bug status updated successfully.")
-        else:
-            print("❌ Failed to update status. Check Bug ID.")
-
-    elif args.command == "show":
-        show_bug_details(args.bug_id)
-
-
-if __name__ == "__main__":
-    main()
+            st.info("Enter a valid Bug ID to load details.")
+    else:
+        st.info("Paste a Bug ID above to manage it.")

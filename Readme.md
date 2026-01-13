@@ -40,10 +40,10 @@ It provides both a **Command-Line Interface (CLI)** and an intuitive **Streamlit
 ## 📁 Project Structure
 
 Bug Tracking Tool/
-│── bug_tracker.py # CLI tool
-│── app.py # Streamlit Dashboard
-│── README.md # Documentation
-│── requirements.txt # (Optional) All dependencies
+│── cli_tool.py    # CLI tool
+│── bug_tracker.py # Streamlit Dashboard
+│── README.md      # Documentation
+│── requirements.txt # Dependencies
 
 ---
 
@@ -72,6 +72,10 @@ set MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
 # Linux/Mac
 export MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
 ```
+
+### 4. Running the App
+- **Dashboard**: `streamlit run bug_tracker.py`
+- **CLI**: `python cli_tool.py --help`
 
 ---
 
