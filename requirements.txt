@@ -1,3 +1,6 @@
 streamlit
 pymongo
 dnspython
+plotly
+pandas
+pytest

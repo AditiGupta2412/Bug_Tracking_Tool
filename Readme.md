@@ -1,103 +1,83 @@
-# 🐞 Bug Tracking Optimization Tool  
-### Python · MongoDB · Streamlit
-
-The **Bug Tracking Optimization Tool** is a lightweight yet powerful system designed to streamline the process of reporting, tracking, testing, and resolving bugs across software modules.  
-It provides both a **Command-Line Interface (CLI)** and an intuitive **Streamlit GUI Dashboard**, backed by a **MongoDB NoSQL database**.
+# 🐞 BugTracker Pro: Enterprise Issue Intelligence
+### A high-performance Bug Tracking & Optimization Suite built with Python, MongoDB, and Streamlit.
 
 ---
 
-## 🚀 Features
-
-### ✔ Core Functionalities
-- Create structured bug reports  
-- Add automated or manual test logs  
-- Update bug statuses (Open → In-progress → Resolved → Closed)  
-- View, filter, and search bugs  
-- Store all bug data in MongoDB  
-- Track Git commit version for each bug  
-
-### ✔ User Interfaces
-- **CLI Tool:**  
-  Can create bugs, update them, add logs, etc.
-
-- **Streamlit GUI Dashboard:**  
-  Easy-to-use browser interface with forms, filters, and expandable bug cards.
+## 🏛 Architecture Overview
+BugTracker Pro is designed for high observability and professional collaboration. It follows a multi-tier architecture:
+- **Presentation Layer**: Streamlit Enterprise Dashboard with custom CSS and Plotly Analytics.
+- **Application Logic**: Python-based CRUD operations with integrated Audit Logging.
+- **Data Layer**: MongoDB NoSQL for scalable, schema-less issue storage.
+- **DevOps Layer**: Fully containerized environment with Docker and Docker Compose.
 
 ---
 
-## 🧩 Technology Stack
-
-| Component | Technology |
-|----------|------------|
-| Backend  | Python |
-| Database | MongoDB |
-| Frontend | Streamlit |
-| Version Control | Git |
-| Libraries | pymongo, streamlit, bson |
+## 🚀 Key Features
+- **📊 Executive Analytics**: Real-time visualization of project health, severity distribution, and reporting trends.
+- **🔐 Enterprise Security**: Secure login gateway with prototype-ready authentication.
+- **📄 Data Portability**: Instant CSV export for reporting and analysis in external BI tools.
+- **🕒 Activity Tracking**: Detailed discussion threads and activity history for every bug.
+- **⚖️ Operational Compliance**: Structured audit logs for all administrative actions.
 
 ---
 
-## 📁 Project Structure
-
-Bug Tracking Tool/
-│── cli_tool.py    # CLI tool
-│── bug_tracker.py # Streamlit Dashboard
-│── README.md      # Documentation
-│── requirements.txt # Dependencies
+## 🛠 Tech Stack
+| Tier | Technology |
+|---|---|
+| **Frontend** | Streamlit, Plotly, Pandas |
+| **Backend** | Python 3.9+, PyMongo |
+| **Database** | MongoDB 6.0+ |
+| **DevOps** | Docker, Docker Compose |
+| **Testing** | Pytest |
 
 ---
 
-## 🔧 Installation Guide
+## 🔧 Deployment & Setup
 
-### 1. Clone the Repository
+### 🐳 Docker (Recommended)
+The fastest way to get started in a professional environment:
 ```bash
-git clone <your-repo-url>
-cd "Bug Tracking Tool"
+docker-compose up --build
 ```
+This will spin up both the application and the MongoDB database automatically.
 
-### 2. Install Dependencies
-It is recommended to use a virtual environment:
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Database Configuration
-By default, the app looks for a local MongoDB at `mongodb://localhost:27017/`.  
-To use a different database (like MongoDB Atlas), set the `MONGO_URI` environment variable:
-```bash
-# Windows
-set MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
-# Linux/Mac
-export MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
-```
-
-### 4. Running the App
-- **Dashboard**: `streamlit run bug_tracker.py`
-- **CLI**: `python cli_tool.py --help`
-
----
-
-## 🚀 Deployment
-
-### Streamlit Community Cloud
-1. Push your code to GitHub.
-2. Connect your repository to [Streamlit Cloud](https://share.streamlit.io/).
-3. In the app settings on Streamlit Cloud, go to **Secrets** and add:
-   ```toml
-   MONGO_URI = "your_mongodb_atlas_connection_string"
+### 🐍 Local Installation
+1. **Initialize Environment**:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate # windows: .venv\Scripts\activate
+   ```
+2. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Set Environment Variables**:
+   ```bash
+   export MONGO_URI="your-mongodb-connection-string"
+   ```
+4. **Launch Dashboard**:
+   ```bash
+   streamlit run bug_tracker.py
    ```
 
 ---
 
-## ❤️ Advantages
-- **Streamlined Workflow**: Easily track bug lifecycle from report to resolution.
-- **Dual Interface**: Use CLI for quick updates or the Dashboard for a visual overview.
-- **Cloud Ready**: Configured for easy deployment with environment variable support.
+## 🧪 Testing & Quality
+We maintain high standards through automated unit testing:
+```bash
+pytest tests/
+```
+
+---
+
+## 📈 Scalability Roadmap
+- **SSO Integration**: SAML/OAuth support for corporate identity providers.
+- **Real-time Notifications**: Slack, Microsoft Teams, and Email integration.
+- **Kubernetes Support**: Helm charts for large-scale cluster deployments.
+- **Public API**: RESTful API endpoints for external integrations.
 
 ---
 
 ## 👤 Author
 **Aditi Gupta**  
-Final Year B.Tech Computer Science
+*Specializing in High-Performance Software Engineering*

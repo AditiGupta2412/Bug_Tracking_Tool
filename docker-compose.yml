@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: bug_tracker_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - bugtracker_network
+
+  app:
+    build: .
+    container_name: bug_tracker_app
+    ports:
+      - "8501:8501"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/
+    depends_on:
+      - mongodb
+    networks:
+      - bugtracker_network
+
+networks:
+  bugtracker_network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
