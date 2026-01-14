@@ -538,6 +538,10 @@ elif menu == "🔍 View & Manage":
         status=status_filter,
         severity=severity_filter,
     )
+
+    if bugs is None:
+        st.error("❌ Could not connect to the database to fetch issues. Please check your MONGO_URI secret.")
+        st.stop()
     
     # Client-side filtering for priority, assignee, and search
     if priority_filter != "All":
