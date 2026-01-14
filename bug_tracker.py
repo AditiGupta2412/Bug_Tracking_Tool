@@ -110,6 +110,18 @@ def generate_tracking_id() -> str:
     return f"{prefix}-{random_part}"
 
 def log_audit_event(action: str, bug_id: Optional[str] = None, details: str = ""):
+    collection = get_db_collection("audit_logs")
+    if collection is not None:
+        try:
+            collection.insert_one({
+                "timestamp": datetime.datetime.utcnow(),
+                "user": "admin", # Prototype user
+                "action": action,
+                "bug_id": bug_id,
+                "details": details
+            })
+        except Exception:
+            pass # Silently fail audit logs if DB is down during an action
 
 def create_bug(
     title: str,
