@@ -12,23 +12,23 @@ Features:
 Usage examples:
 
     # Create a new bug
-    python bug_tracker.py create \
+    python cli_tool.py create \
         --title "Login button not working" \
         --module "auth" \
         --severity "high" \
         --description "Login button does nothing when clicked"
 
     # Add a test log to a bug
-    python bug_tracker.py add-log \
+    python cli_tool.py add-log \
         --bug-id "<BUG_ID_FROM_DB>" \
         --status "failed" \
         --details "Unit tests failed on /login endpoint"
 
     # List all open bugs
-    python bug_tracker.py list --status "open"
+    python cli_tool.py list --status "open"
 
     # Update bug status
-    python bug_tracker.py update-status \
+    python cli_tool.py update-status \
         --bug-id "<BUG_ID_FROM_DB>" \
         --status "resolved"
 

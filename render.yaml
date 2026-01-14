@@ -1,0 +1,22 @@
+services:
+  # The Streamlit Application
+  - type: web
+    name: bug-tracker-app
+    env: docker
+    plan: free # Change to a paid plan if you need more resources
+    region: oregon
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: MONGO_URI
+        fromService:
+          name: mongodb
+          type: db
+          property: connectionString
+
+  # The MongoDB Database
+  - type: db
+    name: mongodb
+    engine: mongodb
+    plan: free
+    region: oregon

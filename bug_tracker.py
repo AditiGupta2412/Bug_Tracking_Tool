@@ -361,16 +361,21 @@ elif menu == "📝 Create Bug":
         if not title or not description or not module:
             st.error("Please fill in Title, Description, and Module.")
         else:
-            bug_id = create_bug(
-                title=title,
-                description=description,
-                severity=severity,
-                priority=priority.split(' - ')[0], # Extract P0, P1, etc.
-                module=module,
-                assignee=assignee or "Unassigned",
-                git_commit=git_commit or None,
-            )
-            st.success(f"Critical bug report filed successfully! Tracking ID: {bug_id}")
+            with st.spinner("Filing report in database..."):
+                try:
+                    bug_id = create_bug(
+                        title=title,
+                        description=description,
+                        severity=severity,
+                        priority=priority.split(' - ')[0], # Extract P0, P1, etc.
+                        module=module,
+                        assignee=assignee or "Unassigned",
+                        git_commit=git_commit or None,
+                    )
+                    st.success(f"✅ Bug report filed successfully! Tracking ID: {bug_id}")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"❌ Failed to create bug: {str(e)}")
 
 
 # --------- Page: View Bugs ---------
@@ -455,9 +460,18 @@ elif menu == "🔍 View & Manage":
                     comment_status = st.selectbox("Type", ["Comment", "Resolved", "Failed Test", "Blocked"], key=f"type_{bug['_id']}")
                     if st.button("Post Update", key=f"btn_{bug['_id']}"):
                         if comment_text.strip():
-                            if add_test_log(str(bug['_id']), comment_status, comment_text):
-                                st.success("Update posted!")
-                                st.rerun()
+                            with st.spinner("Posting update..."):
+                                try:
+                                    if add_test_log(str(bug['_id']), comment_status, comment_text):
+                                        st.toast("Update posted successfully!", icon="✅")
+                                        # Use a slight delay or session state to ensure toast is seen
+                                        import time
+                                        time.sleep(1)
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to post update.")
+                                except Exception as e:
+                                    st.error(f"Error: {str(e)}")
                         else:
                             st.warning("Please enter some text.")
 
@@ -520,10 +534,14 @@ elif menu == "⚙️ Quick Actions":
                     if not log_details.strip():
                         st.error("Please enter log details.")
                     else:
-                        if add_test_log(bug_id_input, log_status, log_details):
-                            st.success("Test log added successfully.")
-                        else:
-                            st.error("Failed to add log.")
+                        with st.spinner("Saving log..."):
+                            try:
+                                if add_test_log(bug_id_input, log_status, log_details):
+                                    st.success("✅ Test log added successfully.")
+                                else:
+                                    st.error("❌ Failed to add log. Check Bug ID.")
+                            except Exception as e:
+                                st.error(f"Error saving log: {str(e)}")
         else:
             st.info("Enter a valid Bug ID to load details.")
     else:
