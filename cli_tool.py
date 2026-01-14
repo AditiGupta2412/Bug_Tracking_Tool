@@ -55,9 +55,17 @@ COLLECTION_NAME = "bugs"
 
 
 def get_db_collection():
-    client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    return db[COLLECTION_NAME]
+    try:
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
+        # Verify connection
+        client.admin.command('ping')
+        db = client[DB_NAME]
+        return db[COLLECTION_NAME]
+    except Exception as e:
+        print(f"\n❌ Error: Could not connect to MongoDB at {MONGO_URI}")
+        print("💡 Tip: Make sure your MongoDB service is running or check your MONGO_URI environment variable.")
+        print("-" * 40)
+        exit(1)
 
 
 # =========================

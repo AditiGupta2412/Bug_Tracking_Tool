@@ -11,29 +11,89 @@ from pymongo import MongoClient
 
 # =========================
 # MongoDB Configuration
-# (Same as bug_tracker.py)
 # =========================
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+def get_mongo_uri():
+    # 1. Check Streamlit Secrets (for Cloud)
+    try:
+        if "MONGO_URI" in st.secrets:
+            return st.secrets["MONGO_URI"]
+    except Exception:
+        pass
+    
+    # 2. Check Environment Variable
+    return os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+
+MONGO_URI = get_mongo_uri()
 DB_NAME = "bug_tracker_db"
 COLLECTION_NAME = "bugs"
 
+# Initialize Mock Mode state
+if "mock_mode" not in st.session_state:
+    st.session_state["mock_mode"] = False
 
-@st.cache_resource
+# =========================
+# Mock Data for Demo Mode
+# =========================
+
+def get_mock_bugs() -> List[Dict[str, Any]]:
+    return [
+        {
+            "_id": "mock_1",
+            "title": "Database connection timeout in production",
+            "description": "App crashes with ServerSelectionTimeoutError when MongoDB is down.",
+            "severity": "critical",
+            "priority": "p0",
+            "status": "resolved",
+            "module": "database",
+            "assignee": "system",
+            "git_commit": "a1b2c3d",
+            "created_at": datetime.datetime.utcnow() - datetime.timedelta(days=2),
+            "updated_at": datetime.datetime.utcnow(),
+            "logs": [{"timestamp": datetime.datetime.utcnow(), "status": "resolved", "details": "Fixed with robust connection handling and Demo Mode."}]
+        },
+        {
+            "_id": "mock_2",
+            "title": "UI elements overlapping on mobile",
+            "description": "Navigation bar hides the main header on small screens.",
+            "severity": "medium",
+            "priority": "p2",
+            "status": "open",
+            "module": "frontend",
+            "assignee": "designer@example.com",
+            "git_commit": "e5f6g7h",
+            "created_at": datetime.datetime.utcnow() - datetime.timedelta(days=1),
+            "updated_at": datetime.datetime.utcnow(),
+            "logs": []
+        }
+    ]
+
+
+@st.cache_resource(show_spinner="Verifying Database Connection...")
 def get_db_collection(name="bugs"):
-    client = MongoClient(MONGO_URI)
-    db = client[DB_NAME]
-    return db[name]
+    try:
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000) # Faster timeout for heartbeat
+        client.admin.command('ping')
+        db = client[DB_NAME]
+        st.session_state["mock_mode"] = False
+        return db[name]
+    except Exception:
+        st.session_state["mock_mode"] = True
+        return None
 
 def log_audit_event(action: str, bug_id: Optional[str] = None, details: str = ""):
     collection = get_db_collection("audit_logs")
-    collection.insert_one({
-        "timestamp": datetime.datetime.utcnow(),
-        "user": "admin", # Prototype user
-        "action": action,
-        "bug_id": bug_id,
-        "details": details
-    })
+    if collection is not None:
+        try:
+            collection.insert_one({
+                "timestamp": datetime.datetime.utcnow(),
+                "user": "admin", # Prototype user
+                "action": action,
+                "bug_id": bug_id,
+                "details": details
+            })
+        except Exception:
+            pass # Silently fail audit logs if DB is down during an action
 
 
 # =========================
@@ -48,8 +108,10 @@ def create_bug(
     module: str,
     assignee: str = "Unassigned",
     git_commit: Optional[str] = None,
-) -> str:
+) -> Optional[str]:
     collection = get_db_collection()
+    if collection is None:
+        return None
     now = datetime.datetime.utcnow()
 
     bug_doc: Dict[str, Any] = {
@@ -78,6 +140,8 @@ def add_test_log(
     details: str,
 ) -> bool:
     collection = get_db_collection()
+    if collection is None:
+        return False
     log_entry = {
         "timestamp": datetime.datetime.utcnow(),
         "status": status.lower(),
@@ -100,6 +164,8 @@ def add_test_log(
 
 def update_bug_status(bug_id: str, new_status: str) -> bool:
     collection = get_db_collection()
+    if collection is None:
+        return False
     result = collection.update_one(
         {"_id": ObjectId(bug_id)},
         {
@@ -120,7 +186,25 @@ def list_bugs(
     module: Optional[str] = None,
     severity: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    collection = get_db_collection()
+    if st.session_state.get("mock_mode", False):
+        bugs = get_mock_bugs()
+    else:
+        collection = get_db_collection()
+        if collection is None:
+            return []
+        query: Dict[str, Any] = {}
+
+        if status and status != "All":
+            query["status"] = status.lower()
+        if module:
+            query["module"] = module
+        if severity and severity != "All":
+            query["severity"] = severity.lower()
+
+        cursor = collection.find(query).sort("created_at", -1)
+        bugs = list(cursor)
+    
+    return bugs
     query: Dict[str, Any] = {}
 
     if status and status != "All":
@@ -136,6 +220,8 @@ def list_bugs(
 
 def get_bug_by_id(bug_id: str) -> Optional[Dict[str, Any]]:
     collection = get_db_collection()
+    if collection is None:
+        return None
     return collection.find_one({"_id": ObjectId(bug_id)})
 
 def export_bugs_to_csv(bugs: List[Dict[str, Any]]):
@@ -254,6 +340,22 @@ if "authenticated" not in st.session_state:
 if not st.session_state["authenticated"]:
     login_form()
     st.stop()
+
+# Database Connection Heartbeat
+collection_check = get_db_collection()
+if st.session_state.get("mock_mode", False):
+    st.info("💡 **Running in Demo Mode** (Displaying sample data as Database is unreachable).")
+    with st.expander("🛠️ Why am I seeing this?"):
+        st.markdown(f"""
+        ### Connection Status:
+        The app could not connect to MongoDB at `{MONGO_URI}`. 
+        
+        **Common Fixes:**
+        - **Local**: Run `docker-compose up -d` or start your local MongoDB service.
+        - **Cloud**: Configure the `MONGO_URI` secret in your host (Streamlit Cloud/Render).
+        
+        The app will automatically switch back to Live Mode once a connection is established.
+        """)
 
 # Logout button in sidebar
 if st.sidebar.button("🚪 Logout"):
