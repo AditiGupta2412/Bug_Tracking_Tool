@@ -1,5 +1,7 @@
 import datetime
 import os
+import random
+import string
 from typing import Any, Dict, Optional, List
 
 import streamlit as st
@@ -100,6 +102,15 @@ def log_audit_event(action: str, bug_id: Optional[str] = None, details: str = ""
 # Helper Functions
 # =========================
 
+def generate_tracking_id() -> str:
+    """Generate a short, human-readable tracking ID."""
+    prefix = "TKT"
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(random.choices(chars, k=4))
+    return f"{prefix}-{random_part}"
+
+def log_audit_event(action: str, bug_id: Optional[str] = None, details: str = ""):
+
 def create_bug(
     title: str,
     description: str,
@@ -115,6 +126,7 @@ def create_bug(
     now = datetime.datetime.utcnow()
 
     bug_doc: Dict[str, Any] = {
+        "tracking_id": generate_tracking_id(),
         "title": title,
         "description": description,
         "severity": severity.lower(),
@@ -222,7 +234,14 @@ def get_bug_by_id(bug_id: str) -> Optional[Dict[str, Any]]:
     collection = get_db_collection()
     if collection is None:
         return None
-    return collection.find_one({"_id": ObjectId(bug_id)})
+    # Support both MongoDB ObjectID and Short Tracking ID
+    if "-" in bug_id:
+        return collection.find_one({"tracking_id": bug_id.strip().upper().replace("#", "")})
+    try:
+        return collection.find_one({"_id": ObjectId(bug_id)})
+    except Exception:
+        # Fallback to tracking_id search if it's not a valid ObjectID
+        return collection.find_one({"tracking_id": bug_id.strip().upper().replace("#", "")})
 
 def export_bugs_to_csv(bugs: List[Dict[str, Any]]):
     if not bugs:
@@ -518,7 +537,7 @@ elif menu == "🔍 View & Manage":
         bugs = [b for b in bugs if assignee_filter.lower() in b.get('assignee', '').lower()]
     if search_query:
         q = search_query.lower()
-        bugs = [b for b in bugs if q in b['title'].lower() or q in b['description'].lower() or q in b['module'].lower()]
+        bugs = [b for b in bugs if q in b['title'].lower() or q in b['description'].lower() or q in b['module'].lower() or q in b.get('tracking_id', '').lower()]
 
     st.write(f"Found **{len(bugs)}** bugs.")
     
@@ -535,9 +554,9 @@ elif menu == "🔍 View & Manage":
     else:
         for bug in bugs:
             with st.expander(
-                f"[{bug['status'].upper()}] {bug['title']}  —  {bug['module']} ({bug['severity']})"
+                f"#{bug.get('tracking_id', 'LEGACY')} | [{bug['status'].upper()}] {bug['title']}  —  {bug['module']} ({bug['severity']})"
             ):
-                st.markdown(f"**ID:** `{bug['_id']}`")
+                st.markdown(f"**Tracking ID:** `#{bug.get('tracking_id', str(bug['_id'])[-6:].upper())}`")
                 
                 c1, c2, c3 = st.columns(3)
                 c1.markdown(f"**Module:** `{bug['module']}`")
