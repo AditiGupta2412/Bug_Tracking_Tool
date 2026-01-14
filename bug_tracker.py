@@ -209,28 +209,16 @@ def list_bugs(
     status: Optional[str] = None,
     module: Optional[str] = None,
     severity: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+) -> Optional[List[Dict[str, Any]]]:
+    """Fetch bugs from the database or mock data. Returns None on connection error."""
     if st.session_state.get("mock_mode", False):
-        bugs = get_mock_bugs()
-    else:
-        collection = get_db_collection()
-        if collection is None:
-            return []
-        query: Dict[str, Any] = {}
-
-        if status and status != "All":
-            query["status"] = status.lower()
-        if module:
-            query["module"] = module
-        if severity and severity != "All":
-            query["severity"] = severity.lower()
-
-        cursor = collection.find(query).sort("created_at", -1)
-        bugs = list(cursor)
+        return get_mock_bugs()
     
-    return bugs
+    collection = get_db_collection()
+    if collection is None:
+        return None
+        
     query: Dict[str, Any] = {}
-
     if status and status != "All":
         query["status"] = status.lower()
     if module:
@@ -238,8 +226,11 @@ def list_bugs(
     if severity and severity != "All":
         query["severity"] = severity.lower()
 
-    cursor = collection.find(query).sort("created_at", -1)
-    return list(cursor)
+    try:
+        cursor = collection.find(query).sort("created_at", -1)
+        return list(cursor)
+    except Exception:
+        return None
 
 
 def get_bug_by_id(bug_id: str) -> Optional[Dict[str, Any]]:
@@ -411,7 +402,9 @@ if menu == "📊 Executive Analytics":
     st.markdown("---")
 
     bugs = list_bugs()  # Fetch all bugs for analytics
-    if not bugs:
+    if bugs is None:
+        st.error("❌ Could not connect to the database to fetch analytics. Please check your MONGO_URI secret.")
+    elif not bugs:
         st.info("No data available for analytics yet. Create your first bug to see insights!")
     else:
         df = pd.DataFrame(bugs)
@@ -507,6 +500,10 @@ elif menu == "📝 Create Bug":
                     )
                     st.success(f"✅ Bug report filed successfully! Tracking ID: {bug_id}")
                     st.balloons()
+                    # Rerun to refresh the app state and data
+                    import time
+                    time.sleep(1.5)
+                    st.rerun()
                 except Exception as e:
                     st.error(f"❌ Failed to create bug: {str(e)}")
 
