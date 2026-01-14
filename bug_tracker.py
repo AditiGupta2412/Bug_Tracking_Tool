@@ -71,11 +71,22 @@ def get_mock_bugs() -> List[Dict[str, Any]]:
     ]
 
 
-@st.cache_resource(show_spinner="Verifying Database Connection...")
-def get_db_collection(name="bugs"):
+@st.cache_resource(show_spinner="Initializing Database Client...")
+def get_db_client():
+    """Initialize the MongoDB client. Caches the connection but retries on failure."""
     try:
-        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000) # Faster timeout for heartbeat
+        # Increase timeout for Atlas Free Tier cold starts
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
         client.admin.command('ping')
+        return client
+    except Exception as e:
+        # Do not cache if connection fails
+        raise e
+
+def get_db_collection(name="bugs"):
+    """Get a specific collection. Switches to mock mode on failure."""
+    try:
+        client = get_db_client()
         db = client[DB_NAME]
         st.session_state["mock_mode"] = False
         return db[name]
@@ -109,19 +120,6 @@ def generate_tracking_id() -> str:
     random_part = ''.join(random.choices(chars, k=4))
     return f"{prefix}-{random_part}"
 
-def log_audit_event(action: str, bug_id: Optional[str] = None, details: str = ""):
-    collection = get_db_collection("audit_logs")
-    if collection is not None:
-        try:
-            collection.insert_one({
-                "timestamp": datetime.datetime.utcnow(),
-                "user": "admin", # Prototype user
-                "action": action,
-                "bug_id": bug_id,
-                "details": details
-            })
-        except Exception:
-            pass # Silently fail audit logs if DB is down during an action
 
 def create_bug(
     title: str,
@@ -364,17 +362,31 @@ if not st.session_state["authenticated"]:
     st.stop()
 
 # Database Connection Heartbeat
-collection_check = get_db_collection()
+try:
+    collection_check = get_db_collection()
+except Exception:
+    collection_check = None
+
 if st.session_state.get("mock_mode", False):
     st.info("💡 **Running in Demo Mode** (Displaying sample data as Database is unreachable).")
-    with st.expander("🛠️ Why am I seeing this?"):
+    with st.expander("🛠️ Connection Debug Info"):
+        # Mask the URI to help user debug without exposing password
+        masked_uri = MONGO_URI
+        if "@" in MONGO_URI:
+            parts = MONGO_URI.split("@")
+            prefix = parts[0].split("://")
+            masked_uri = f"{prefix[0]}://****:****@{parts[1]}"
+        
         st.markdown(f"""
         ### Connection Status:
-        The app could not connect to MongoDB at `{MONGO_URI}`. 
+        The app could not connect to MongoDB. 
+        
+        **Current URI being used:** `{masked_uri}`
         
         **Common Fixes:**
         - **Local**: Run `docker-compose up -d` or start your local MongoDB service.
-        - **Cloud**: Configure the `MONGO_URI` secret in your host (Streamlit Cloud/Render).
+        - **Cloud**: Ensure your `MONGO_URI` secret in Streamlit Cloud is exactly right.
+        - **IP Access**: Double check that MongoDB Atlas 'Network Access' allows `0.0.0.0/0`.
         
         The app will automatically switch back to Live Mode once a connection is established.
         """)
